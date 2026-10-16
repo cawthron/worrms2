@@ -28,7 +28,6 @@ More info is available via:
 
 ## Installation
 
-After this repository has been committed and pushed to GitHub, install it with:
 
 ```r
 install.packages("devtools")  # Once, if needed
@@ -49,9 +48,12 @@ and `worrms` (>= 0.4.3). These and their dependencies are installed automaticall
 The full `tidyverse` is not required. Loading `worrms2` does not attach its
 dependencies to the search path.
 
+If package updates cause problems try:
 
+```r
+remotes::install_github("cawthron/worrms2", upgrades= 'never')
+```
 
-## curl
 
 If curl installation fails, try using the latest pre-compiled binary with:
 
