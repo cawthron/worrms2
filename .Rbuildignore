@@ -1,0 +1,15 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.Rprofile$
+^\.Rhistory$
+^\.RData$
+^\.Ruserdata$
+^\.renvignore$
+^renv$
+^renv\.lock$
+^AGENTS\.md$
+^dev$
+^\.github$
+^.*\.Rcheck$
+^worrms2_.*\.tar\.gz$
+^worrms2_.*\.zip$

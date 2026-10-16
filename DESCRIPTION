@@ -1,0 +1,32 @@
+Package: worrms2
+Title: Validate Taxonomic Names Against the World Register of Marine Species
+Version: 0.1.0
+Authors@R:
+    person("Fabio", "Weiss", email = "fabio.weiss@cawthron.org.nz",
+           role = c("aut", "cre"))
+Description: Validate taxonomic names against the World Register of Marine
+    Species using exact and fuzzy matching. Prioritise marine and accepted
+    records, retrieve accepted taxonomy, flag matches for review, and join
+    validation results to ecological observations. Batch requests and shared
+    lookups reduce repeated web service calls.
+License: file LICENSE
+Encoding: UTF-8
+Depends:
+    R (>= 4.1.0)
+Imports:
+    dplyr (>= 1.1.1),
+    httr,
+    jsonlite,
+    mgsub,
+    stringi,
+    stringr,
+    tibble,
+    worrms (>= 0.4.3)
+Suggests:
+    devtools,
+    renv,
+    roxygen2,
+    testthat (>= 3.2.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.1.1
