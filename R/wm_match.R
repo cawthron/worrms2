@@ -2,6 +2,8 @@
 # Package dependencies are declared in DESCRIPTION and NAMESPACE.
 
 #' Validate taxonomic names against WoRMS using tidyverse data pipelines
+#' 
+#' Very similar to `worrms::wm_records_taxamatch` while being able to handle more names at once, providing some quality control, and returning outputs as data frame (instead of list).
 #'
 #' @param taxa Character vector of taxonomic names without missing values.
 #' @param eval_as Named character vector mapping original names to lookup names.

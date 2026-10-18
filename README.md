@@ -24,6 +24,7 @@ More info is available via:
 ?worrms2_method()
 ```
 
+`wm_match()` is very similar to `worrms::wm_records_taxamatch` while being able to handle more names at once, providing some quality control, and returning outputs as data frame (instead of list).
 
 
 ## Installation
