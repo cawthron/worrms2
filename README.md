@@ -4,7 +4,7 @@ Validate taxonomic names against the **World Register of Marine Species
 (WoRMS)**, review uncertain matches, and add accepted taxonomy to ecological
 observations.
 
-It builds on the lower-level [`worrms`](https://docs.ropensci.org/worrms/) client.
+It builds on the official [`worrms`](https://docs.ropensci.org/worrms/) client.
 
 
 `worrms2` provides three public functions:
