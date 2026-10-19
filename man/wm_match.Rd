@@ -2,7 +2,9 @@
 % Please edit documentation in R/wm_match.R
 \name{wm_match}
 \alias{wm_match}
-\title{Validate taxonomic names against WoRMS using tidyverse data pipelines}
+\title{Pipeline for cleaning, matching, validating, and updating taxonomic names with
+efficient handling of duplicate names, fuzzy matching, and referral to accepted
+synomyms or parents. Output needs reviewing!}
 \usage{
 wm_match(
   taxa,
@@ -14,18 +16,19 @@ wm_match(
 )
 }
 \arguments{
-\item{taxa}{Non-empty character vector of taxonomic names without missing
-values. Supply names that remain non-empty after cleaning.}
+\item{taxa}{Taxa names to be validated, should not contain any NAs.}
 
-\item{eval_as}{Named character vector mapping original names to lookup names.
+\item{eval_as}{Namend vector of potential substitute names for matching.
 Use \code{NULL} for no overrides. The original default is retained.}
 
 \item{prio_marine}{Logical; prefer marine records when available. Defaults
 to \code{TRUE}.}
 
-\item{prio_accepted}{Logical; prefer accepted records when available.}
+\item{prio_accepted}{Logical; prefer accepted records when available.Defaults
+to \code{TRUE}}
 
-\item{exclude_extinct}{Logical; discard explicitly extinct records.}
+\item{exclude_extinct}{Logical; discard explicitly extinct records.Defaults
+to \code{TRUE}}
 
 \item{batch_size}{Integer from 1 to 50; maximum names per exact-search
 request. Defaults to 49. The function does not validate this argument.}
@@ -36,9 +39,9 @@ distinct input name, in first-occurrence order. Populated Aphia IDs are
 character; columns containing only missing values may remain logical.
 }
 \description{
-Clean taxonomic names, combine batched exact searches with individual fuzzy
-searches, and return a validation data frame with accepted taxonomy and
-review flags. Complements \code{worrms::wm_records_taxamatch()}.
+Pipeline for cleaning, matching, validating, and updating taxonomic names with
+efficient handling of duplicate names, fuzzy matching, and referral to accepted
+synomyms or parents. Output needs reviewing!
 }
 \details{
 Cleaning trims whitespace, collapses repeated spaces, removes
@@ -69,11 +72,13 @@ Empty input and invalid batch sizes are unsupported.
 \section{Output columns}{
 
 \describe{
-\item{flag}{Numeric review indicator. 0: no implemented rule triggered.
-1: multiple candidates or an input name different from the accepted name.
-2: no match, missing match method, changed identifier or rank, or a matched
+\item{flag}{Numeric review indicator.
+0: matched to accepted taxa without any changes.
+1: matched to accepted taxa with minor changes or multiple matching  - e.g. corrected typo in name.
+2: review necessary - e.g. no match, missing match method, changed identifier or rank, or a matched
 status other than accepted. Flag 2 takes precedence over flag 1.}
-\item{input_taxa, eval_taxa}{Original and cleaned lookup names.}
+\item{input_taxa}{Original string supplied to the function.}
+\item{eval_taxa}{String as assassed via API, potentially a substitute provided in the eval_as argument.}
 \item{match_taxa, worms_match, match_worms_status}{Matched name, match
 method, and the matched record's taxonomic status.}
 \item{match_aphia_id, match_rank}{Matched record's identifier and rank.}
