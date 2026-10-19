@@ -1,20 +1,19 @@
-# Taxonomic validation using Fabio Weiss's original WoRMS workflow.
-# Package dependencies are declared in DESCRIPTION and NAMESPACE.
+# Pipeline for validating taxonomic names against WoRMS using 
 
-#' Validate taxonomic names against WoRMS using tidyverse data pipelines
+#' Pipeline for cleaning, matching, validating, and updating taxonomic names with
+#' efficient handling of duplicate names, fuzzy matching, and referral to accepted 
+#' synomyms or parents. Output needs reviewing!  
 #' 
-#' Clean taxonomic names, combine batched exact searches with individual fuzzy
-#' searches, and return a validation data frame with accepted taxonomy and
-#' review flags. Complements `worrms::wm_records_taxamatch()`.
 #'
-#' @param taxa Non-empty character vector of taxonomic names without missing
-#'   values. Supply names that remain non-empty after cleaning.
-#' @param eval_as Named character vector mapping original names to lookup names.
+#' @param taxa Taxa names to be validated, should not contain any NAs.
+#' @param eval_as Namend vector of potential substitute names for matching.
 #'   Use `NULL` for no overrides. The original default is retained.
 #' @param prio_marine Logical; prefer marine records when available. Defaults
 #'   to `TRUE`.
-#' @param prio_accepted Logical; prefer accepted records when available.
-#' @param exclude_extinct Logical; discard explicitly extinct records.
+#' @param prio_accepted Logical; prefer accepted records when available.Defaults
+#'   to `TRUE`
+#' @param exclude_extinct Logical; discard explicitly extinct records.Defaults
+#'   to `TRUE`
 #' @param batch_size Integer from 1 to 50; maximum names per exact-search
 #'   request. Defaults to 49. The function does not validate this argument.
 #' @return A data.frame with the original 17 validation columns, one row per
@@ -46,10 +45,11 @@
 #'   Empty input and invalid batch sizes are unsupported.
 #' @section Output columns:
 #' \describe{
-#'   \item{flag}{Numeric review indicator. 0: matched to accepted taxa without any changes.
-#'     1: matched to accepted taxa with minor changes or multiple matching  - e.g. corrected typo in name.
-#'     2: review necessary - e.g. no match, missing match method, changed identifier or rank, or a matched
-#'     status other than accepted. Flag 2 takes precedence over flag 1.}
+#'   \item{flag}{Numeric review indicator. 
+#'               0: matched to accepted taxa without any changes.
+#'               1: matched to accepted taxa with minor changes or multiple matching  - e.g. corrected typo in name.
+#'               2: review necessary - e.g. no match, missing match method, changed identifier or rank, or a matched
+#'               status other than accepted. Flag 2 takes precedence over flag 1.}
 #'   \item{input_taxa}{Original string supplied to the function.}
 #'   \item{eval_taxa}{String as assassed via API, potentially a substitute provided in the eval_as argument.}
 #'   \item{match_taxa, worms_match, match_worms_status}{Matched name, match
