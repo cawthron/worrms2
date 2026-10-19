@@ -1,12 +1,12 @@
 # Pipeline for validating taxonomic names against WoRMS using 
-
+#'
 #' Pipeline for cleaning, matching, validating, and updating taxonomic names with
 #' efficient handling of duplicate names, fuzzy matching, and referral to accepted 
-#' synomyms or parents. Output needs reviewing!  
+#' synonyms or parents. Output needs reviewing!  
 #' 
 #'
 #' @param taxa Taxa names to be validated, should not contain any NAs.
-#' @param eval_as Namend vector of potential substitute names for matching.
+#' @param eval_as Named vector of potential substitute names for matching.
 #'   Use `NULL` for no overrides. The original default is retained.
 #' @param prio_marine Logical; prefer marine records when available. Defaults
 #'   to `TRUE`.
@@ -19,7 +19,7 @@
 #' @return A data.frame with the original 17 validation columns, one row per
 #'   distinct input name, in first-occurrence order. Populated Aphia IDs are
 #'   character; columns containing only missing values may remain logical.
-#' @details Cleaning trims whitespace, collapses repeated spaces, removes
+#' @details Cleaning trims white space, collapses repeated spaces, removes
 #'   common qualifiers and parenthetical text, applies `eval_as` overrides,
 #'   then removes punctuation. Distinct original names remain separate even
 #'   when they share a cleaned lookup name.
@@ -51,7 +51,7 @@
 #'               2: review necessary - e.g. no match, missing match method, changed identifier or rank, or a matched
 #'               status other than accepted. Flag 2 takes precedence over flag 1.}
 #'   \item{input_taxa}{Original string supplied to the function.}
-#'   \item{eval_taxa}{String as assassed via API, potentially a substitute provided in the eval_as argument.}
+#'   \item{eval_taxa}{String as assessed via API, potentially a substitute provided in the eval_as argument.}
 #'   \item{match_taxa, worms_match, match_worms_status}{Matched name, match
 #'     method, and the matched record's taxonomic status.}
 #'   \item{match_aphia_id, match_rank}{Matched record's identifier and rank.}
