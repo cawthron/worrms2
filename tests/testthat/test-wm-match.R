@@ -1,156 +1,162 @@
-test_that("invalid and empty inputs never call the API", {
-  local_mocked_bindings(.wm_tidy_api = function(...) stop("Unexpected API call"),
-                        .package = "worrms2")
+# Mock the original client's boundaries; ordinary tests never contact WoRMS.
+test_that("the matcher rejects missing names before requests", {
+  local_mocked_bindings(
+    wm_records_names = function(...) stop("Unexpected API call"),
+    GET = function(...) stop("Unexpected HTTP call"), .package = "worrms2"
+  )
   expect_identical(formals(wm_match)$prio_marine, TRUE)
-  empty <- quiet_match(character())
-  expect_s3_class(empty, "data.frame")
-  expect_equal(dim(empty), c(0L, 17L))
-  expect_type(empty$valid_aphia_id, "character")
-  expect_type(empty$flag, "integer")
-  expect_error(quiet_match(NA_character_), "without missing")
-  expect_error(quiet_match(1), "character vector")
-  for (size in list(0, 51, 1.5, NA, Inf)) {
-    expect_error(quiet_match("Example", batch_size = size), "integer from 1 to 50")
-  }
-  expect_error(quiet_match("Example", prio_marine = NA), "TRUE/FALSE")
-  expect_error(quiet_match("Example", eval_as = "unnamed"), "uniquely named")
-  expect_error(quiet_match("Example", eval_as = c(a = "x", a = "y")), "uniquely named")
+  expect_equal(formals(wm_match)$batch_size, 49)
+  expect_error(quiet_match(NA_character_), "Taxa should not contain any NAs")
 })
 
-test_that("cleaned names share lookups and preserve original order", {
+test_that("exact batches preserve distinct original inputs and output columns", {
   calls <- list()
-  local_mocked_bindings(.wm_tidy_api = function(method, value) {
-    calls[[length(calls) + 1L]] <<- list(method = method, value = value)
-    lapply(value, example_record)
-  }, .package = "worrms2")
-  inputs <- c("Same sp.", "Same", "Other", "Same")
-  result <- quiet_match(inputs, eval_as = c(Other = "Same"))
-  expect_identical(result$input_taxa, unique(inputs))
+  local_mocked_bindings(
+    wm_records_names = function(name) {
+      calls[[length(calls) + 1L]] <<- as.character(name)
+      lapply(name, example_record)
+    },
+    GET = function(...) stop("Unexpected HTTP call"), .package = "worrms2"
+  )
+  result <- quiet_match(c("Same sp.", "Same", "Other", "Same"),
+                        eval_as = c(Other = "Same"), batch_size = 2)
+  expect_identical(result$input_taxa, c("Same sp.", "Same", "Other"))
   expect_identical(result$eval_taxa, rep("Same", 3))
-  expect_identical(result$flag, rep(0L, 3))
-  expect_length(calls, 1)
-  expect_identical(calls[[1]]$value, "Same")
+  expect_identical(calls, list(c("Same", "Same"), "Same"))
+  expect_equal(result$flag, c(1, 0, 1))
+  expect_identical(result$match_aphia_id, rep("1", 3))
+  expect_identical(names(result), c(
+    "flag", "input_taxa", "eval_taxa", "match_taxa", "worms_match",
+    "match_worms_status", "match_aphia_id", "match_rank", "valid_taxa",
+    "valid_aphia_id", "valid_rank", "valid_phylum", "valid_class",
+    "valid_order", "valid_family", "valid_genus", "valid_species"
+  ))
 })
 
-test_that("fuzzy batches preserve NULL slots and skip empty names", {
-  calls <- list()
-  local_mocked_bindings(.wm_tidy_api = function(method, value) {
-    calls[[length(calls) + 1L]] <<- list(method = method, value = value)
-    lapply(value, function(name) {
-      if (name == "Missing" || (method == "exact" && name != "Exact")) return(NULL)
-      example_record(if (name == "Exact") name else "Corrected")
-    })
-  }, .package = "worrms2")
-  result <- quiet_match(c("Typo1", "Exact", "Typo2", "Missing", "!!!"), batch_size = 2)
-  expect_identical(result$worms_match,
-                    c("fuzzy_near_1", "exact", "fuzzy_near_1", "no_match", "no_match"))
-  expect_identical(result$flag, c(1L, 0L, 1L, 1L, 1L))
-  expect_length(calls, 4)
-  expect_false(any(vapply(calls, function(call) any(call$value == ""), logical(1))))
-})
-
-test_that("candidate preferences retain their original order and multiple flags", {
+test_that("candidate preferences preserve order and multiple-match labels", {
   choices <- rbind(example_record("Choice", 1, marine = 0),
-                    example_record("Choice", 2, status = "unaccepted"),
-                    example_record("Choice", 3), example_record("Choice", 4, extinct = 1))
-  local_mocked_bindings(.wm_tidy_api = function(method, value) {
-    lapply(value, function(name) choices)
-  }, .package = "worrms2")
+                   example_record("Choice", 2, status = "unaccepted"),
+                   example_record("Choice", 3),
+                   example_record("Choice", 4, extinct = 1))
+  local_mocked_bindings(
+    wm_records_names = function(name) lapply(name, function(x) choices),
+    GET = function(...) stop("Unexpected HTTP call"), .package = "worrms2"
+  )
   expect_identical(quiet_match("Choice")$match_aphia_id, "3")
   expect_identical(quiet_match("Choice", prio_marine = FALSE)$match_aphia_id, "1")
   expect_identical(quiet_match("Choice", prio_accepted = FALSE)$match_aphia_id, "2")
+  expect_equal(quiet_match("Choice", prio_accepted = FALSE)$flag, 2)
   expect_identical(quiet_match("Choice")$worms_match, "multiple_exact")
-  expect_identical(quiet_match("Choice")$flag, 1L)
-  choices <- example_record("Unknown", marine = NA, extinct = NA)
-  expect_identical(quiet_match("Unknown")$flag, 0L)
-  choices <- example_record("Extinct", extinct = 1)
-  expect_identical(quiet_match("Extinct")$worms_match, "no_match")
-  expect_identical(quiet_match("Extinct", exclude_extinct = FALSE)$worms_match, "exact")
+  expect_equal(quiet_match("Choice")$flag, 1)
 })
 
-test_that("saturated exact responses use fuzzy matching", {
-  local_mocked_bindings(.wm_tidy_api = function(method, value) {
-    lapply(value, function(name) {
-      if (method == "exact") example_record(name)[rep(1L, 50), ] else example_record(name)
-    })
-  }, .package = "worrms2")
-  expect_identical(quiet_match("Saturated")$worms_match, "fuzzy_near_1")
+test_that("missing and saturated exact results use individual fuzzy requests", {
+  urls <- character()
+  local_mocked_bindings(
+    wm_records_names = function(name) lapply(name, function(x) {
+      if (x == "Saturated") return(example_record(x)[rep(1L, 50), ])
+      if (x == "Exact") return(example_record(x))
+      NULL
+    }),
+    GET = function(url) {
+      urls <<- c(urls, url)
+      jsonlite::toJSON(list(example_record("Corrected")), dataframe = "rows")
+    },
+    content = function(x, ...) x, .package = "worrms2"
+  )
+  result <- quiet_match(c("Typo1", "Exact", "Typo2", "Saturated"))
+  expect_identical(result$worms_match,
+                   c("fuzzy_near_1", "exact", "fuzzy_near_1", "fuzzy_near_1"))
+  expect_equal(result$flag, c(1, 0, 1, 1))
+  expect_length(urls, 3)
+  expect_true(all(grepl("marine_only=false", urls, fixed = TRUE)))
 })
 
-test_that("accepted records and failures are cached per call", {
+test_that("synonyms fetch accepted records individually and receive flag 2", {
   requests <- 0L
-  fail <- FALSE
-  local_mocked_bindings(.wm_tidy_api = function(method, value) {
-    if (method == "record") {
+  local_mocked_bindings(
+    wm_records_names = function(name) lapply(name, function(x) {
+      example_record(x, valid_id = 99, status = "unaccepted")
+    }),
+    GET = function(url) {
       requests <<- requests + 1L
-      if (fail) stop("Synthetic service failure")
-      return(example_record("Accepted", 99))
-    }
-    lapply(value, function(name) example_record(name, valid_id = 99))
-  }, .package = "worrms2")
+      expect_match(url, "AphiaRecordByAphiaID/99", fixed = TRUE)
+      jsonlite::toJSON(as.list(example_record("Accepted", 99)), auto_unbox = TRUE)
+    },
+    content = function(x, ...) x, .package = "worrms2"
+  )
   result <- quiet_match(c("Synonym1", "Synonym2"))
+  expect_equal(requests, 2)
   expect_identical(result$valid_taxa, rep("Accepted", 2))
-  expect_equal(requests, 1L)
-  fail <- TRUE
-  expect_warning(failed <- quiet_match(c("Synonym1", "Synonym2")), "Accepted-record lookup failed")
-  expect_true(all(is.na(failed$valid_taxa)))
-  expect_identical(failed$flag, c(1L, 1L))
-  expect_equal(requests, 2L)
+  expect_identical(result$valid_aphia_id, rep("99", 2))
+  expect_equal(result$flag, c(2, 2))
 })
 
-test_that("missing valid identifiers fall back to the parent record", {
-  local_mocked_bindings(.wm_tidy_api = function(method, value) {
-    if (method == "record") return(example_record("Parent", 99, rank = "Genus"))
-    lapply(value, function(name) {
-      record <- example_record(name, valid_id = NA)
+test_that("missing valid identifiers retrieve parent taxonomy", {
+  local_mocked_bindings(
+    wm_records_names = function(name) lapply(name, function(x) {
+      record <- example_record(x, valid_id = NA)
       record$parentNameUsageID <- 99
       record
-    })
-  }, .package = "worrms2")
+    }),
+    GET = function(url) {
+      jsonlite::toJSON(as.list(example_record("Parent", 99, rank = "Genus")),
+                       auto_unbox = TRUE)
+    },
+    content = function(x, ...) x, .package = "worrms2"
+  )
   result <- quiet_match("Child")
   expect_identical(result$valid_aphia_id, "99")
   expect_identical(result$valid_rank, "Genus")
   expect_true(is.na(result$valid_species))
-  expect_identical(result$flag, 1L)
+  expect_equal(result$flag, 2)
 })
 
-test_that("batch errors and alignment errors recover through single requests", {
-  for (bad_shape in c(FALSE, TRUE)) {
-    calls <- 0L
-    local_mocked_bindings(.wm_tidy_api = function(method, value) {
-      calls <<- calls + 1L
-      if (length(value) > 1L) {
-        if (bad_shape) return(list(NULL))
-        stop("Synthetic batch failure")
-      }
-      lapply(value, example_record)
-    }, .package = "worrms2")
-    expect_warning(result <- quiet_match(c("One", "Two")), "request failed")
-    expect_identical(result$flag, c(0L, 0L))
-    expect_equal(calls, 3L)
-  }
+test_that("original batch and individual error behaviour is preserved", {
+  local_mocked_bindings(
+    wm_records_names = function(...) stop("Synthetic batch failure"),
+    GET = function(...) stop("Unexpected HTTP call"), .package = "worrms2"
+  )
+  expect_error(quiet_match(c("One", "Two")), "Synthetic batch failure")
+  local_mocked_bindings(
+    wm_records_names = function(name) lapply(name, function(x) NULL),
+    GET = function(...) stop("Synthetic lookup failure"), .package = "worrms2"
+  )
+  missing <- quiet_match("Missing")
+  expect_identical(missing$worms_match, "no_match")
+  expect_equal(missing$flag, 2)
+  local_mocked_bindings(
+    wm_records_names = function(name) lapply(name, function(x) {
+      example_record(x, valid_id = 99)
+    }), .package = "worrms2"
+  )
+  failed <- quiet_match("Synonym")
+  expect_identical(failed$valid_taxa, "Synonym")
+  expect_identical(failed$valid_aphia_id, "99")
+  expect_equal(failed$flag, 2)
 })
 
-test_that("progress reports batches, original positions, elapsed time and review", {
-  local_mocked_bindings(.wm_tidy_api = function(method, value) {
-    lapply(value, function(name) {
-      if (method == "exact" && name != "Exact") return(NULL)
-      example_record(name)
-    })
-  }, .package = "worrms2")
+test_that("progress reports exact batches, fuzzy positions, timing and review", {
+  local_mocked_bindings(
+    wm_records_names = function(name) lapply(name, function(x) {
+      if (x == "Exact") example_record(x) else NULL
+    }),
+    GET = function(url) jsonlite::toJSON(list(example_record("Corrected")),
+                                        dataframe = "rows"),
+    content = function(x, ...) x, .package = "worrms2"
+  )
   progress <- character()
-  withCallingHandlers(
-    invisible(wm_match(c("Typo1", "Exact", "Typo2", "Typo1 sp."), batch_size = 2)),
+  timing <- capture.output(withCallingHandlers(
+    invisible(wm_match(c("Typo1", "Exact", "Typo2"), batch_size = 2)),
     message = function(m) {
       progress <<- c(progress, sub("\n$", "", conditionMessage(m)))
       invokeRestart("muffleMessage")
     }
-  )
-  timing <- grep("^Time difference of [0-9]+\\.[0-9]{2} secs$", progress)
-  expect_length(timing, 1)
-  expect_identical(progress[-timing], c(
+  ))
+  expect_true(any(grepl("Time difference of", timing, fixed = TRUE)))
+  expect_identical(progress, c(
     "Direct matching with WoRMS ...", "Batch 1/2", "Batch 2/2", "",
-    "Fuzzy matching with WoRMS ...", "Typo1 1/4", "Typo2 3/4", "Typo1 sp. 4/4",
-    "", "DONE", "Please double-check results"
+    "Fuzzy matching with WoRMS ...", "Typo1 1/3", "Typo2 3/3", "", "DONE",
+    "Please doublecheck results"
   ))
 })

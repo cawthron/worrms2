@@ -5,5 +5,20 @@ export(wm_match)
 export(worrms2_method)
 importFrom(dplyr,
   "%>%",
-  .data
+  .data,
+  mutate,
+  case_when,
+  distinct,
+  rename,
+  select
 )
+importFrom(httr,GET)
+importFrom(httr,content)
+importFrom(jsonlite,fromJSON)
+importFrom(mgsub,mgsub)
+importFrom(stats,na.omit)
+importFrom(stringi,stri_enc_isutf8)
+importFrom(stringi,stri_encode)
+importFrom(stringr,str_trim)
+importFrom(stringr,str_remove_all)
+importFrom(worrms,wm_records_names)

@@ -35,8 +35,8 @@ if (identical(Sys.getenv("WORRMS2_RUN_LIVE_TESTS"), "true")) local({
                                example$taxa[has_override])
   if (!length(overrides)) overrides <- NULL
 
-  # Any API warning fails this smoke test: service failures must not pass as
-  # ordinary no-matches. Actual unmatched taxa remain valid review outcomes.
+  # Warnings fail this smoke test. The original matcher suppresses some errors,
+  # so a passing smoke test does not establish that every request succeeded.
   elapsed <- system.time({
     validation <- withCallingHandlers(
       code$wm_match(example$taxa, eval_as = overrides),
@@ -48,11 +48,11 @@ if (identical(Sys.getenv("WORRMS2_RUN_LIVE_TESTS"), "true")) local({
   stopifnot(
     nrow(validation) == length(unique(example$taxa)), ncol(validation) == 17L,
     identical(validation$input_taxa, unique(example$taxa)),
-    all(validation$flag %in% c(0L, 1L)), !anyNA(validation$worms_match),
+    all(validation$flag %in% c(0, 1, 2)), !anyNA(validation$worms_match),
     any(matched), all(!is.na(validation$match_aphia_id[matched])),
     all(!is.na(validation$valid_taxa[matched])),
     all(!is.na(validation$valid_aphia_id[matched])),
-    all(validation$flag[!matched] == 1L),
+    all(validation$flag[!matched] == 2),
     nrow(enriched) == nrow(example),
     identical(enriched$original_taxa, example$taxa),
     identical(validation$eval_taxa[match(example$taxa[has_override],
@@ -67,7 +67,7 @@ if (identical(Sys.getenv("WORRMS2_RUN_LIVE_TESTS"), "true")) local({
   cat("Overrides:", sum(has_override), "\n")
   cat("Matched:", sum(matched), "\n")
   cat("Unmatched:", sum(!matched), "\n")
-  cat("Flagged for review:", sum(validation$flag == 1L), "\n")
+  cat("Flagged for review:", sum(validation$flag > 0), "\n")
   cat("Elapsed seconds:", elapsed, "\n")
   print(table(validation$worms_match))
 })

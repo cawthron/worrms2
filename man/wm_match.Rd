@@ -14,7 +14,8 @@ wm_match(
 )
 }
 \arguments{
-\item{taxa}{Character vector of taxonomic names without missing values.}
+\item{taxa}{Non-empty character vector of taxonomic names without missing
+values. Supply names that remain non-empty after cleaning.}
 
 \item{eval_as}{Named character vector mapping original names to lookup names.
 Use \code{NULL} for no overrides. The original default is retained.}
@@ -26,47 +27,58 @@ to \code{TRUE}.}
 
 \item{exclude_extinct}{Logical; discard explicitly extinct records.}
 
-\item{batch_size}{Integer from 1 to 50; maximum names per API request.}
+\item{batch_size}{Integer from 1 to 50; maximum names per exact-search
+request. Defaults to 49. The function does not validate this argument.}
 }
 \value{
 A data.frame with the original 17 validation columns, one row per
-distinct input name, in first-occurrence order. Aphia IDs are character.
+distinct input name, in first-occurrence order. Populated Aphia IDs are
+character; columns containing only missing values may remain logical.
 }
 \description{
-Validate taxonomic names against WoRMS using tidyverse data pipelines
+Clean taxonomic names, combine batched exact searches with individual fuzzy
+searches, and return a validation data frame with accepted taxonomy and
+review flags. Complements \code{worrms::wm_records_taxamatch()}.
 }
 \details{
-The original cleaning rules, match labels and priority order are
-retained: exclude extinct records, prefer marine, then prefer accepted.
-Remaining ties use the first API record and are flagged. As in the original,
-exact searches use \code{marine_only = TRUE}, whereas TAXAMATCH searches use
-\code{marine_only = FALSE}. Thus \code{prio_marine = FALSE} disables preference within
-returned candidates, but does not broaden the exact-search endpoint.
+Cleaning trims whitespace, collapses repeated spaces, removes
+common qualifiers and parenthetical text, applies \code{eval_as} overrides,
+then removes punctuation. Distinct original names remain separate even
+when they share a cleaned lookup name.
 
-Names sharing a cleaned lookup name share requests. Fuzzy searches are
-batched, and accepted records are cached within this call. Exact responses
-with 50 records fall back to TAXAMATCH, as in the original.
+Exact searches use \code{\link[worrms:wm_records_names]{worrms::wm_records_names()}} with its default marine
+restriction. Missing exact matches and responses containing 50 records
+fall back to individual TAXAMATCH requests with \code{marine_only = FALSE}.
+Candidates are filtered in this order: exclude explicitly extinct records,
+prefer marine records, then prefer accepted records. Remaining ties use the
+first record. Multiple-match labels reflect candidate counts before these
+preferences. Setting \code{prio_marine = FALSE} does not broaden exact searches.
 
-Failed batches fall back to one request per name. Individual failures warn;
-unsuccessful matches and missing accepted taxonomy are flagged. Unlike the
-original, failed accepted-record requests leave accepted taxonomy missing.
-Empty cleaned names are not submitted. Review all flagged results.
+Accepted or parent records are fetched individually when their identifier
+differs from the matched identifier; lookups are not cached. A failed exact
+batch stops the function. Errors inside the per-name lookup and taxonomy
+steps are generally suppressed by \code{try()}. If an accepted-record lookup
+fails, fields can still come from the matched record. Missing classification
+alone does not necessarily raise a flag. Review all results, including
+missing taxonomy, before using them in an analysis.
 
-Progress messages report completed exact batches, original labels and row
-positions submitted for fuzzy matching, elapsed time, and a review reminder.
-Batch counts refer to distinct cleaned names; row positions refer to the
-distinct original inputs. No requests are made for an empty input.
+Progress messages report exact batches and original names and row positions
+needing fuzzy matching. Elapsed time is printed before a review reminder.
+Empty input and invalid batch sizes are unsupported.
 }
 \section{Output columns}{
 
 \describe{
-\item{flag}{Integer review indicator: 0 or 1.}
+\item{flag}{Numeric review indicator. 0: no implemented rule triggered.
+1: multiple candidates or an input name different from the accepted name.
+2: no match, missing match method, changed identifier or rank, or a matched
+status other than accepted. Flag 2 takes precedence over flag 1.}
 \item{input_taxa, eval_taxa}{Original and cleaned lookup names.}
 \item{match_taxa, worms_match, match_worms_status}{Matched name, match
 method, and the matched record's taxonomic status.}
 \item{match_aphia_id, match_rank}{Matched record's identifier and rank.}
 \item{valid_taxa, valid_aphia_id, valid_rank}{Accepted or parent record's
-name, identifier, and rank. Identifiers are stored as character.}
+name, identifier, and rank. See the error-handling caveat above.}
 \item{valid_phylum, valid_class, valid_order, valid_family, valid_genus}{
 Classification fields from the accepted or parent record.}
 \item{valid_species}{Accepted name when its rank is Species; otherwise NA.}
@@ -74,11 +86,10 @@ Classification fields from the accepted or parent record.}
 }
 
 \examples{
-wm_match(character())
 \dontrun{
 validation <- wm_match(c("Abra alba", "Bivalvia Unid. (juv)"),
                        eval_as = c("Bivalvia Unid. (juv)" = "Bivalvia"))
-validation[validation$flag == 1L, ]
+validation[validation$flag > 0, ]
 }
 }
 \seealso{
